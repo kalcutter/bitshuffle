@@ -1,0 +1,15 @@
+---
+Checks: "\
+bugprone-*,\
+readability-inconsistent-declaration-parameter-name,\
+readability-redundant-*,\
+readability-uppercase-literal-suffix,\
+-bugprone-easily-swappable-parameters,\
+-bugprone-implicit-widening-of-multiplication-result,\
+-bugprone-narrowing-conversions,\
+-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling"
+CheckOptions:
+  readability-inconsistent-declaration-parameter-name.IgnoreMacros: false
+  readability-inconsistent-declaration-parameter-name.Strict: true
+WarningsAsErrors: '*'
+...

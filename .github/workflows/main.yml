@@ -1,0 +1,256 @@
+name: Main
+
+on:
+  push:
+    branches: [main, ci]
+
+jobs:
+  bazel-linux-arm64-clang:
+    runs-on: [self-hosted, linux, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Configure
+        run: |
+          echo "build --config=ci --config=clang" | tee job.rc
+      - name: Build
+        run: |
+          bazel --bazelrc=job.rc build -c opt //...
+      - name: Build (libc++)
+        run: |
+          bazel --bazelrc=job.rc build -c opt --config=libc++ //...
+      - name: Test
+        run: |
+          bazel --bazelrc=job.rc test --copt=-O3 --config=asan --config=ubsan-extra //:bitshuffle_test --test_arg=--gtest_break_on_failure
+      - name: Bench
+        run: |
+          bazel --bazelrc=job.rc run -c opt --copt=-O3 //:bitshuffle_benchmark -- --benchmark_filter='BM_bitshuffle<.*>/.*/8192'
+  bazel-linux-arm64-gcc:
+    runs-on: [self-hosted, linux, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Configure
+        run: |
+          echo "build --config=ci --config=generic_gcc" | tee job.rc
+      - name: Build
+        run: |
+          bazel --bazelrc=job.rc build -c opt //...
+      - name: Test
+        run: |
+          bazel --bazelrc=job.rc test --copt=-O3 --config=asan --config=ubsan //:bitshuffle_test --test_arg=--gtest_break_on_failure
+      - name: Bench
+        run: |
+          bazel --bazelrc=job.rc run -c opt --copt=-O3 //:bitshuffle_benchmark -- --benchmark_filter='BM_bitshuffle<.*>/.*/8192'
+  bazel-linux-x86_64-icelake-clang:
+    strategy:
+      matrix:
+        m:
+          - "sse2"
+          - "avx2"
+          - "avx512bw avx512vl"
+          - "avx512bw avx512vl avx512vbmi gfni"
+        use_ifunc: [0, 1]
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Configure
+        run: |
+          m="${{ matrix.m }}"
+          echo "build --config=ci --config=clang --copt=-m${m// / --copt=-m} --copt=-DBITSHUF_USE_IFUNC=${{ matrix.use_ifunc }}" | tee job.rc
+      - name: Build
+        run: |
+          bazel --bazelrc=job.rc build -c opt //...
+      - name: Build (libc++)
+        run: |
+          bazel --bazelrc=job.rc build -c opt --config=libc++ //...
+      - name: Test
+        run: |
+          bazel --bazelrc=job.rc test --copt=-O3 --config=asan --config=ubsan-extra //:bitshuffle_test --test_arg=--gtest_break_on_failure
+      - name: Bench
+        run: |
+          bazel --bazelrc=job.rc run -c opt --copt=-O3 //:bitshuffle_benchmark -- --benchmark_filter='BM_bitshuffle<.*>/.*/8192'
+  bazel-linux-x86_64-icelake-gcc:
+    strategy:
+      matrix:
+        m:
+          - "no-sse2"
+          - "sse2"
+          - "avx2"
+          - "avx512bw avx512vl"
+          - "avx512bw avx512vl avx512vbmi gfni"
+        use_ifunc: [0, 1]
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Configure
+        run: |
+          m="${{ matrix.m }}"
+          echo "build --config=ci --config=generic_gcc --copt=-m${m// / --copt=-m} --copt=-DBITSHUF_USE_IFUNC=${{ matrix.use_ifunc }}" | tee job.rc
+      - name: Build
+        run: |
+          bazel --bazelrc=job.rc build -c opt //...
+      - name: Test
+        run: |
+          bazel --bazelrc=job.rc test --copt=-O3 --config=asan --config=ubsan //:bitshuffle_test --test_arg=--gtest_break_on_failure
+      - name: Bench
+        run: |
+          bazel --bazelrc=job.rc run -c opt --copt=-O3 //:bitshuffle_benchmark -- --benchmark_filter='BM_bitshuffle<.*>/.*/8192'
+  bazel-linux-x86_64-clang:
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-latest]
+        m:
+          - "sse2"
+          - "avx2"
+        use_ifunc: [0, 1]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Configure
+        run: |
+          m="${{ matrix.m }}"
+          echo "build --config=ci --config=clang --copt=-m${m// / --copt=-m} --copt=-DBITSHUF_USE_IFUNC=${{ matrix.use_ifunc }}" | tee job.rc
+      - name: Build
+        run: |
+          bazel --bazelrc=job.rc build -c opt //...
+      - name: Test
+        run: |
+          bazel --bazelrc=job.rc test --copt=-O3 --config=asan --config=ubsan-extra //:bitshuffle_test --test_arg=--gtest_break_on_failure
+  bazel-linux-x86_64-gcc:
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-latest]
+        m:
+          - "no-sse2"
+          - "sse2"
+          - "avx2"
+        use_ifunc: [0, 1]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install
+        run: |
+          # Bazel prefers LLD to GNU gold. Install LLD to avoid gold relocation overflow bug on ubuntu-20.04.
+          # https://mail.gnu.org/archive/html/bug-binutils/2020-04/msg00329.html
+          sudo apt-get update
+          sudo apt-get install lld
+      - name: Configure
+        run: |
+          m="${{ matrix.m }}"
+          echo "build --config=ci --config=generic_gcc --copt=-m${m// / --copt=-m} --copt=-DBITSHUF_USE_IFUNC=${{ matrix.use_ifunc }}" | tee job.rc
+      - name: Build
+        run: |
+          bazel --bazelrc=job.rc build -c opt //...
+      - name: Test
+        run: |
+          bazel --bazelrc=job.rc test --copt=-O3 --config=asan --config=ubsan //:bitshuffle_test --test_arg=--gtest_break_on_failure
+  bazel-macos-x86_64:
+    strategy:
+      matrix:
+        os: [macos-11, macos-12, macos-13]
+        m:
+          - "sse2"
+          - "avx2"
+        exclude:
+          - {os: macos-11, m: "avx2"}
+          - {os: macos-12, m: "avx2"}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Configure
+        run: |
+          m="${{ matrix.m }}"
+          echo "build --config=ci --config=generic_gcc --copt=-m${m// / --copt=-m}" | tee job.rc
+      - name: Build
+        run: |
+          bazel --bazelrc=job.rc build -c opt //...
+      - name: Test
+        run: |
+          bazel --bazelrc=job.rc test --copt=-O3 --config=asan --config=ubsan-extra //:bitshuffle_test --test_arg=--gtest_break_on_failure
+  bazel-windows-msvc:
+    strategy:
+      matrix:
+        # FIXME(kal): Add windows-2022 once it works with bazel.
+        # https://github.com/bazelbuild/bazel/issues/18592
+        os: [windows-2019]
+        cpu: [x64, x64_x86]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Configure
+        run: |
+          "build --cpu=${{ matrix.cpu }}_windows --config=ci --config=msvc" | Out-File -FilePath job.rc
+      - name: Build
+        run: |
+          bazel --bazelrc=job.rc build -c opt //...
+      - name: Test
+        run: |
+          bazel --bazelrc=job.rc test --copt=/O2 --config=asan-msvc //:bitshuffle_test --test_arg=--gtest_break_on_failure
+  bazel-windows-msvc-arch:
+    strategy:
+      matrix:
+        include:
+          - {cpu: x64, arch: AVX}
+          - {cpu: x64, arch: AVX2}
+          - {cpu: x64_x86, arch: IA32}
+          - {cpu: x64_x86, arch: SSE}
+          - {cpu: x64_x86, arch: SSE2}
+          - {cpu: x64_x86, arch: AVX}
+          - {cpu: x64_x86, arch: AVX2}
+    runs-on: windows-2019
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Configure
+        run: |
+          "build --cpu=${{ matrix.cpu }}_windows --config=ci --config=msvc --copt=/arch:${{ matrix.arch }}" | Out-File -FilePath job.rc
+      - name: Build
+        run: |
+          bazel --bazelrc=job.rc build -c opt //...
+      - name: Test
+        run: |
+          bazel --bazelrc=job.rc test --copt=/O2 --config=asan-msvc //:bitshuffle_test --test_arg=--gtest_break_on_failure
+  clang-format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Clang-Format
+        run: |
+          set -eu
+          srcs=$(git ls-files -- '*.c' '*.cc' '*.h')
+          clang-format --dry-run --Werror --verbose -- ${srcs}
+  clang-tidy:
+    strategy:
+      matrix:
+        m:
+          - "no-sse2"
+          - "sse2"
+          - "avx2"
+          - "avx512bw avx512vl"
+          - "avx512bw avx512vl avx512vbmi gfni"
+        use_ifunc: [0, 1]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install
+        run: |
+          sudo apt-get update
+          sudo apt-get install clang-tidy-15
+      - name: Configure
+        run: |
+          m="${{ matrix.m }}"
+          echo "CFLAGS=-m${m// / -m} -DBITSHUF_USE_IFUNC=${{ matrix.use_ifunc }}" >>"${GITHUB_ENV}"
+      - name: Clang-Tidy
+        run: |
+          set -eu
+          clang-tidy-15 --warnings-as-errors='*' src/bitshuffle.c -- ${CFLAGS}
+          clang-tidy-15 --warnings-as-errors='*' src/bitshuffle.c -- ${CFLAGS} -DNDEBUG

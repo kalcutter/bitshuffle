@@ -1,0 +1,43 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "bitshuffle",
+    srcs = [
+        "src/bitshuffle.c",
+    ],
+    hdrs = [
+        "src/bitshuffle.h",
+    ],
+)
+
+cc_binary(
+    name = "bitshuffle_benchmark",
+    srcs = [
+        "tests/bitshuffle_benchmark.cc",
+    ],
+    copts = [
+        "-Iexternal",
+    ],
+    linkstatic = True,
+    deps = [
+        ":bitshuffle",
+        "@benchmark",
+        "@benchmark//:benchmark_main",
+        "@bitshuffle//:bitshuffle_core",
+    ],
+)
+
+cc_test(
+    name = "bitshuffle_test",
+    srcs = [
+        "tests/bitshuffle_test.cc",
+    ],
+    linkstatic = True,
+    deps = [
+        ":bitshuffle",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)

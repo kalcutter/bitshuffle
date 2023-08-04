@@ -1,0 +1,9 @@
+BasedOnStyle: Chromium
+AccessModifierOffset: -4
+AlwaysBreakBeforeMultilineStrings: false
+BraceWrapping:
+  AfterControlStatement: MultiLine
+BreakBeforeBraces: Custom
+ColumnLimit: 100
+IndentWidth: 4
+SpacesBeforeTrailingComments: 1

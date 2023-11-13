@@ -176,9 +176,7 @@ jobs:
   bazel-windows-msvc:
     strategy:
       matrix:
-        # FIXME(kal): Add windows-2022 once it works with bazel.
-        # https://github.com/bazelbuild/bazel/issues/18592
-        os: [windows-2019]
+        os: [windows-2019, windows-2022]
         cpu: [x64, x64_x86]
     runs-on: ${{ matrix.os }}
     steps:
@@ -192,7 +190,7 @@ jobs:
           bazel --bazelrc=job.rc build -c opt //...
       - name: Test
         run: |
-          bazel --bazelrc=job.rc test --copt=/O2 --config=asan-msvc //:bitshuffle_test --test_arg=--gtest_break_on_failure
+          bazel --bazelrc=job.rc test //:bitshuffle_test --test_arg=--gtest_break_on_failure
   bazel-windows-msvc-arch:
     strategy:
       matrix:

@@ -1,7 +1,4 @@
-common --enable_platform_specific_config
-
 build --features=layering_check
-build --repo_env=BAZEL_CXXOPTS=-std=c++14
 
 build:ci --keep_going
 build:ci --test_output=all
@@ -27,15 +24,12 @@ build:libc++-static --config=libc++
 build:libc++-static --repo_env=BAZEL_LINKLIBS=-l%:libc++.a:-l%:libc++abi.a:-lm
 build:libc++-static --repo_env=BAZEL_LINKOPTS=-pthread
 
-build:macos --cxxopt=-std=c++14
-
 build:macos-x86_64 --copt=-arch --copt=x86_64
 build:macos-x86_64 --linkopt=-arch --linkopt=x86_64
 
 build:msvc --per_file_copt=^external/@/W2
 build:msvc --per_file_copt=^//@/W4,/WX
 build:msvc --conlyopt=/Za
-build:msvc --cxxopt=/std:c++14
 
 build:asan --features=asan
 build:asan --test_env=ASAN_OPTIONS=check_initialization_order=1:detect_invalid_pointer_pairs=1:detect_stack_use_after_return=1:strict_init_order=1:strict_string_checks=1
